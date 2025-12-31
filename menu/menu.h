@@ -18,6 +18,10 @@
 //******************************* Global Types *********************************
 
 //***************************** Global Constants *******************************
+#define MENU_MAIN_OPTIONS_MAX			(4)
+#define MENU_SECONDARY_OPTIONS_MAX		(5)
+#define SEARCH_CRITERIA_MAXIMUM_OPTIONS (5)
+#define REMOVE_CRITERIA_MAXIMUM_OPTIONS (4)
 
 //***************************** Global Variables *******************************
 typedef enum{
@@ -28,8 +32,26 @@ typedef enum{
 	MENU_REMOVE
 }MENU_OPTIONS;
 
+typedef enum{
+	BACK_TO_MAIN_MENU,
+	SEARCH_BY_NAME,
+	SEARCH_BY_TYPE,
+	SEARCH_BY_ID,
+	SEARCH_BY_VENDOR,
+	SEARCH_BY_SERIAL
+}SEARCH_OPTIONS;
+
+typedef enum{
+	RETURN_TO_MAIN_MENU,
+	REMOVE_BY_NAME,
+	REMOVE_BY_TYPE,
+	REMOVE_BY_ID,
+	REMOVE_BY_VENDOR
+}REMOVE_OPTIONS;
+
 //**************************** Forward Declarations ****************************
 bool menuMain(void);
+bool menuFlushInput(void);
 
 #endif // MENU_H
 // EOF

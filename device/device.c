@@ -20,25 +20,522 @@
 #include "device.h"
 #include "customTypes.h"
 #include "file.h"
+#include "menu.h"
+#include "constants.h"
 
 //******************************* Local Types **********************************
 
 //***************************** Local Constants ********************************
-#define SUCCESS      (1)
-#define WRITE_COUNT  (1)
-#define READ_COUNT   (1)
-#define CHAR_SIZE    (sizeof(char))
-#define INT_SIZE     (sizeof(int))
-#define LONG_SIZE     (sizeof(unsigned long))
+#define PRINT_ERROR			(-1)
+#define WRITE_COUNT			(1)
+#define READ_COUNT			(1)
+#define CHAR_SIZE			(sizeof(char))
+#define INT_SIZE			(sizeof(int))
+#define LONG_SIZE			(sizeof(unsigned long))
+#define VALUE_ONE			(1)
+#define READ_HEX			(1)
+#define READ_NON_HEX		(0)
+#define STRINGS_EQUAL		(0)
+#define PRINT_ENABLED		(1)
+#define PRINT_DISABLED		(0)
+#define TEMPORARY_FILE_NAME	("temporary.dat")
 
 //***************************** Local Variables ********************************
 
 //****************************** Local Functions *******************************
 
 //******************************.FUNCTION_HEADER.*******************************
+//Purpose	: Check whether the Serial number is already exist in device data
+//Inputs	: uint32 *pulSerial, the Serial value to be checked whether it 
+//				already used
+//Outputs	: None
+//Return	: True, if the Serial number has not already been used
+//Return	: False, if the Serial number has already been used
+//Notes		: 
+//******************************************************************************
+static bool deviceCheckSerialAvailable(uint32 pulSerial,
+										const uint8 *pucFileName)
+{
+	bool blReturn = true;
+	DEVICE_DETAILS DeviceData = {0};
+	FILE *pstFile = NULL;
+
+	if (pucFileName != NULL)
+	{
+		pstFile = fileOpen(pucFileName, FILE_READ_MODE);
+		
+		if(pstFile != NULL)
+		{
+			while(fileRead(&DeviceData, sizeof(DeviceData),
+							READ_COUNT, pstFile) == SUCCESS)
+			{
+				if(DeviceData.ulDeviceSerial == pulSerial)
+				{
+					printf("\nThe Serial number has already been used");
+					blReturn = false;
+				}
+				
+			}
+		}
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To print details of a device
+//Inputs	: DEVICE_DETAILS DeviceData, the variable for the device of which 
+//			  the details to be printed
+//Outputs	: None
+//Return	: True, at time of successful execution
+//Return	: False, in case of an error
+//Notes		: 
+//******************************************************************************
+static bool devicePrintData(DEVICE_DETAILS *pDeviceData)
+{
+	bool blReturn = false;
+	int8 cResult = 0;
+
+	if(pDeviceData != NULL)
+	{
+		cResult = printf("%s\t\t%s\t\t0x%lX\t\t0x%lX\t\t%lu\n",
+						pDeviceData->pucDeviceName,
+						pDeviceData->pucDeviceType, pDeviceData->ulDeviceId,
+						pDeviceData->ulDeviceVendor,
+						pDeviceData->ulDeviceSerial);
+
+		if(cResult > PRINT_ERROR)
+		{
+			blReturn = true;
+		}
+	}
+	else
+	{
+		printf("\n Unable to print device data : Invalid DeviceData pointer");
+
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To read value to a variable entered by the user
+//Inputs	: const uint8 *pucStringInformation, string that describes the
+//				detail of expected data as input
+//Inputs	: uint32 *pulValue, variable to which the read data is stored
+//Inputs	: bool blReadHex, used to check whether the value to be read in 
+//				hex format or not
+//Outputs	: None
+//Return	: True, at time of successful execution
+//Return	: False, in case of an error
+//Notes		: None
+//******************************************************************************
+static bool deviceReadValue(const uint8 *pucStringInformation,
+							uint32 *pulValue, bool blReadHex)
+{
+	bool blReturn = false;
+
+	if(pucStringInformation != NULL && pulValue != NULL &&
+		(blReadHex == true || blReadHex == false))
+	{
+
+		printf("%s", pucStringInformation);
+
+		if(blReadHex == READ_HEX)
+		{
+			blReturn = scanf("%lx",pulValue);
+		}
+		else
+		{
+			blReturn = scanf("%lu",pulValue);
+		}
+		
+		if(blReturn != SUCCESS)
+		{
+			printf("\n Unable to read the value : Invalid input");
+		}
+	}
+	else
+	{
+		printf("\n Unable to read the value : Invalid function arguments");
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To read a string entered by the user 
+//Inputs	: const uint8 *pucStringInformation, string that describes 
+//			  expected input data
+//Inputs	: uint8 *pucString, variable to store the string entered by the user
+//			  input 
+//Inputs	: uint32 ulSize, maximum number of bytes to be read
+//Outputs	: None
+//Return	: True, at time of successful execution
+//Return	: False, in case of an error
+//Notes		: None
+//******************************************************************************
+static bool deviceReadString(const uint8 *pucStringInformation,
+							uint8 *pucString, uint32 ulSize)
+{
+	bool blReturn = false;
+
+	if(pucStringInformation != NULL && pucString != NULL && ulSize >= 0)
+	{
+		printf("%s", pucStringInformation);
+
+		if(fgets((char *)pucString, ulSize, stdin) != NULL)
+		{
+			pucString[strcspn((char *)pucString, "\n")] = '\0';
+
+			int str_len = strlen((char *)pucString);
+
+			if(strlen((char *)pucString) >= STR_MAX_SIZE)
+			{
+				printf("\nUnable to read the string :\
+						String length exceeds the limit\n");
+			}
+			else
+			{
+				blReturn = true;
+			}
+		}
+		else
+		{
+			printf("\nUnable to read the string : Read process failed");
+		}
+	}
+	else
+	{
+		printf("\n Unable to read the string : Invalid function arguments");
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To read the device details provided by the user
+//Inputs	: DEVICE_DETAILS *pstDeviceData, used to store the device details 
+//				entered  by the user
+//Inputs	: const uint8 *pucFileName, name of the file name which contains the
+//				device details
+//Outputs	: None
+//Return	: True, if all the device details has been read properly
+//Return	: False, if any error while reading the device details
+//Notes		: None
+//******************************************************************************
+static bool deviceReadData(DEVICE_DETAILS *pstDeviceData,
+							const uint8 *pucFileName)
+{
+	bool blReturn = false;
+
+	blReturn = deviceReadString("Enter the device name : ",
+								pstDeviceData->pucDeviceName, STR_MAX_SIZE);
+
+	if(blReturn == SUCCESS)
+	{
+		blReturn =  deviceReadString("Enter the device type : ",
+										pstDeviceData->pucDeviceType,
+										STR_MAX_SIZE);
+	}
+
+	if(blReturn == SUCCESS)
+	{
+		blReturn = deviceReadValue("Enter the device Id : ",
+									&pstDeviceData->ulDeviceId,
+									READ_HEX);
+	}
+
+	if(blReturn == SUCCESS)
+	{
+		blReturn = deviceReadValue("Enter the device vendor : ",
+									&pstDeviceData->ulDeviceVendor,
+									READ_HEX);
+	}
+
+	if(blReturn == SUCCESS)
+	{
+		deviceReadValue("Enter the device Serial : ",
+						&pstDeviceData->ulDeviceSerial, 
+						READ_NON_HEX);
+		blReturn = deviceCheckSerialAvailable(pstDeviceData->ulDeviceSerial,
+												pucFileName);
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To search device with matching string
+//Inputs	: FILE *pstFile, pointer to the file which contains the device data
+//Inputs	: uint32 ucChoice, the choice selected by user as search criteria
+//Inputs	: const uint8 *pucStringToSearch, the string which is to be compared
+//				among the existing device details
+//Outputs	: None
+//Return	: True, if a match is found
+//Return	: False, in case no match found
+//Notes		: None
+//******************************************************************************
+static bool deviceCheckStringMatch(FILE *pstFile,
+									uint32 ucChoice,
+									const uint8 *pucStringToSearch)
+{
+	bool blReturn = false;
+	DEVICE_DETAILS DeviceData = {0};
+	
+	while(fileRead(&DeviceData, sizeof(DeviceData),
+				  READ_COUNT, pstFile) == SUCCESS)
+	{
+		if(((ucChoice == SEARCH_BY_NAME) && 
+			(strcmp((char*)DeviceData.pucDeviceName,
+			pucStringToSearch) == STRINGS_EQUAL)) ||
+			((ucChoice == SEARCH_BY_TYPE) && 
+			(strcmp((char*)DeviceData.pucDeviceType,
+			pucStringToSearch) == STRINGS_EQUAL)))
+		{
+			printf("Name\t\tType\t\tId\t\tVendor\t\tSerial\n");
+			devicePrintData(&DeviceData);			
+			blReturn = SUCCESS;
+		}
+	}
+
+	if(blReturn != SUCCESS)
+	{
+		printf("No matching string found\n");
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To search device with matching string
+//Inputs	: FILE *pstFile, pointer to the file which contains the device data
+//Inputs	: uint32 ucChoice, the choice selected by user as search criteria
+//Inputs	: uint32 ulValueToSearch, the value which is to be compared
+//				among the existing device details
+//Outputs	: None
+//Return	: True, if a match is found
+//Return	: False, in case no match found
+//Notes		: None
+//******************************************************************************
+static bool deviceCheckValueMatch(FILE *pstFile,
+									uint32 ucChoice,
+									uint32 ulValueToSearch)
+{
+	bool blReturn = false;
+	DEVICE_DETAILS DeviceData = {0};
+	
+	while(fileRead(&DeviceData, sizeof(DeviceData),
+				  READ_COUNT, pstFile) == SUCCESS)
+	{
+		if(((ucChoice == SEARCH_BY_ID) &&
+			(DeviceData.ulDeviceId == ulValueToSearch)) ||
+			((ucChoice == SEARCH_BY_VENDOR) &&
+			(DeviceData.ulDeviceVendor == ulValueToSearch)) ||
+			((ucChoice == SEARCH_BY_SERIAL) &&
+			(DeviceData.ulDeviceSerial == ulValueToSearch)))
+		{
+			
+			printf("Name\t\tType\t\tId\t\tVendor\t\tSerial\n");
+			devicePrintData(&DeviceData);
+			blReturn = SUCCESS;
+		}
+	}
+	if(blReturn != SUCCESS)
+	{
+		printf("No matching value found");
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To search device data based on criteria
+//Inputs	: FILE *pstFile,  pointer to the file which contains the device data
+//Inputs	: uint32 ucChoice, the choice selected by user as search criteria 
+//Outputs	: None
+//Return	: True, at time of successful execution
+//Return	: False, in case of an error
+//Notes		: User will provide the data to be searched based on the selected
+//				criteria
+//******************************************************************************
+static bool deviceSearchByCriteria(FILE *pstFile,
+									uint32 ucChoice)
+{
+	bool blReturn = false;
+	DEVICE_DETAILS DeviceData = {0};
+	uint8 ucStringToSearch[STR_MAX_SIZE] = "";
+	uint32 ulValueToSearch = 0;
+	
+
+	if(pstFile != NULL && 
+		(ucChoice >= 0 && ucChoice <= SEARCH_CRITERIA_MAXIMUM_OPTIONS))
+	{
+
+		if(ucChoice == SEARCH_BY_NAME || ucChoice == SEARCH_BY_TYPE)
+		{
+			if(ucChoice == SEARCH_BY_NAME)
+			{
+				blReturn = deviceReadString("Enter Name: ",
+										ucStringToSearch, STR_MAX_SIZE);
+			}
+			else
+			{
+				blReturn = deviceReadString("Enter Type: ",
+										ucStringToSearch, STR_MAX_SIZE);			
+			}
+
+			if(blReturn == SUCCESS)
+			{
+				deviceCheckStringMatch(pstFile, ucChoice, ucStringToSearch);
+			}
+		}
+		else if(ucChoice == SEARCH_BY_ID || ucChoice == SEARCH_BY_VENDOR ||
+				ucChoice == SEARCH_BY_SERIAL)
+		{
+			if(ucChoice == SEARCH_BY_ID)
+			{
+				blReturn = deviceReadValue("Enter Id: ",
+										&ulValueToSearch, READ_HEX);
+			}
+			else if(ucChoice == SEARCH_BY_SERIAL)
+			{
+				blReturn = deviceReadValue("Enter Serial: ",
+										&ulValueToSearch, READ_NON_HEX);
+			}
+			else
+			{
+				blReturn = deviceReadValue("Enter Vendor: ",
+										&ulValueToSearch, READ_HEX);
+			}
+
+			if(blReturn == SUCCESS)
+			{
+				deviceCheckValueMatch(pstFile, ucChoice, ulValueToSearch);
+			}
+			
+		}
+		else
+		{
+			printf("\nUnable to search : Invalid search criteria");
+		}
+	}
+	else
+	{
+		printf("\nUnable to search by criteria : Invalid parameters");
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To remove device data based on criteria
+//Inputs	: FILE *pstFile,  pointer to the file which contains the device data
+//Inputs	: uint32 ucChoice, the choice selected by user as search criteria 
+//Outputs	: None
+//Return	: True, at the time of successful execution
+//Return	: False, in case of an error
+//Notes		: None
+//******************************************************************************
+static bool deviceRemoveByCriteria(FILE *pstFile,
+								   uint32 ucChoice )
+{
+	bool blReturn = false;
+	DEVICE_DETAILS DeviceData = {0};
+	uint8 ucStringToSearch[STR_MAX_SIZE] = "";
+	uint32 ulValueToSearch = 0;
+	FILE *pstTemporaryFile = NULL;
+	uint8 ucRemoveData = 0;
+	uint8 ucKeepData = SUCCESS;
+	
+
+	if(pstFile != NULL && 
+		(ucChoice >= 0 && ucChoice <= SEARCH_CRITERIA_MAXIMUM_OPTIONS))
+	{
+		if(ucChoice == SEARCH_BY_NAME)
+		{
+			blReturn = deviceReadString("Enter Name: ",
+										ucStringToSearch, STR_MAX_SIZE);
+			deviceCheckStringMatch(pstFile, ucChoice, ucStringToSearch);
+		}
+		else if(ucChoice == SEARCH_BY_TYPE)
+		{
+			blReturn = deviceReadString("Enter Type: ",
+										ucStringToSearch, STR_MAX_SIZE);
+		}
+		else if(ucChoice == SEARCH_BY_ID)
+		{
+			blReturn = deviceReadValue("Enter Id: ",
+										&ulValueToSearch, READ_HEX);
+		}
+		else if(ucChoice == SEARCH_BY_VENDOR)
+		{
+			blReturn = deviceReadValue("Enter Vendor: ",
+										&ulValueToSearch, READ_HEX);
+		}
+		else
+		{
+			printf("\nUnable to search : Invalid search criteria");
+		}
+
+		if(blReturn == SUCCESS)
+		{
+			pstTemporaryFile = fileOpen(TEMPORARY_FILE_NAME, FILE_WRITE_MODE);
+
+			while(fileRead(&DeviceData, sizeof(DeviceData),
+				READ_COUNT, pstFile) == SUCCESS)
+			{
+				if(((ucChoice == SEARCH_BY_NAME) && 
+					(strcmp((char*)DeviceData.pucDeviceName,
+					ucStringToSearch) == STRINGS_EQUAL)) ||
+					((ucChoice == SEARCH_BY_TYPE) && 
+					(strcmp((char*)DeviceData.pucDeviceType,
+					ucStringToSearch) == STRINGS_EQUAL)) ||
+					((ucChoice == SEARCH_BY_ID) && 
+					(DeviceData.ulDeviceId == ulValueToSearch) ) ||
+					((ucChoice == SEARCH_BY_VENDOR) && 
+					(DeviceData.ulDeviceVendor == ulValueToSearch) ))
+				{
+					//printf("\n Match found");
+					ucKeepData = 0;
+					ucRemoveData = SUCCESS;
+				}
+
+				if(ucKeepData == SUCCESS)
+				{
+					fileWrite(&DeviceData, sizeof(DeviceData),WRITE_COUNT,
+								pstTemporaryFile);
+				}
+			}
+			fileClose(pstTemporaryFile);
+	
+			if(ucRemoveData == SUCCESS)
+			{
+				remove(FILE_NAME);
+				rename(TEMPORARY_FILE_NAME,FILE_NAME);
+				printf("\n Removed the item\n");
+			}
+			else
+			{
+				remove(TEMPORARY_FILE_NAME);
+				printf("No match found to remove.\n");
+			}
+
+		}
+	}
+	else
+	{
+		printf("\nUnable to search by criteria : Invalid parameters");
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
 //Purpose	: To add a new device to the entry
-//Inputs	: File to be updated
-//Outputs	: Updated file
+//Inputs	: const uint8 *pucFileName, pointer to file to which device data is
+//				updated
+//Outputs	: None
 //Return	: True, at time of successful execution
 //Return	: False, in case of an error
 //Notes		: File opened in append mode
@@ -46,11 +543,8 @@
 bool deviceAdd(const uint8 *pucFileName)
 {
 	bool blReturn = false;
-	bool blResult = false;
 	DEVICE_DETAILS DeviceData = {0};
 	FILE *pstFile = NULL;
-	DeviceData.pucDevName = NULL;
-	DeviceData.pucDevType = NULL;
 	uint32 ulLen = 0;
 	uint8 ucNameLen = 0;
 	uint8 ucTypeLen = 0;
@@ -58,43 +552,24 @@ bool deviceAdd(const uint8 *pucFileName)
 	if (pucFileName != NULL)
 	{
 		pstFile = fileOpen(pucFileName, FILE_APPEND_MODE);
+		
 		if(pstFile != NULL)
 		{
 			printf("\nAdd device\n");
 			printf("-----------------------------\n");
-			getchar();
-			printf("Enter the device name : ");
-			getline((char **)&DeviceData.pucDevName, &ulLen, stdin);
-			DeviceData.pucDevName[strcspn(DeviceData.pucDevName, "\n")] = '\0';
-			ulLen = 0;
-			printf("Enter the device type : ");
-			getline((char **)&DeviceData.pucDevType, &ulLen, stdin);
-			DeviceData.pucDevType[strcspn(DeviceData.pucDevType, "\n")] = '\0';
-			ucNameLen = strlen((char *)DeviceData.pucDevName);
-			ucTypeLen = strlen((char *)DeviceData.pucDevType);
-			printf("Enter the device Id : ");
-			scanf("%x", (unsigned int *)&DeviceData.ulDevId);
-			printf("Enter the device vendor : ");
-			scanf("%x", (unsigned int *)&DeviceData.ulDevVendor);
-			printf("Enter the device Serial : ");
-			scanf("%lu", &DeviceData.ulDevSerial);
-			blResult = fileWrite(&ucNameLen, INT_SIZE, WRITE_COUNT, pstFile);
-			blResult = fileWrite(DeviceData.pucDevName, CHAR_SIZE, ucNameLen,
-									pstFile);
-			blResult = fileWrite(&ucTypeLen, INT_SIZE, WRITE_COUNT, pstFile);
-			blResult = fileWrite(DeviceData.pucDevType, CHAR_SIZE, ucTypeLen,
-									pstFile);
-			blResult = fileWrite(&DeviceData.ulDevId, INT_SIZE, WRITE_COUNT,
-								 	pstFile);
-			blResult = fileWrite(&DeviceData.ulDevVendor, INT_SIZE, WRITE_COUNT,
-								 	pstFile);
-			blResult = fileWrite(&DeviceData.ulDevSerial, LONG_SIZE, WRITE_COUNT,
-								 	pstFile);
-			blResult = fileClose(pstFile);
-			if (blResult != blReturn)
+			blReturn = deviceReadData(&DeviceData, FILE_NAME);
+
+			if(blReturn == SUCCESS)
 			{
-				blReturn = blResult;
+				blReturn = fileWrite(&DeviceData, sizeof(DeviceData),
+									WRITE_COUNT, pstFile);
 			}
+
+			if(blReturn == SUCCESS)
+			{
+				printf("\n Device details updated successfully");
+			}
+			blReturn = fileClose(pstFile);
 		}
 		else
 		{
@@ -105,14 +580,16 @@ bool deviceAdd(const uint8 *pucFileName)
 	{
 		printf("\nUnable to add a new device : Missing file name");
 	}
+
 	return blReturn;
 }
 
 //******************************.FUNCTION_HEADER.*******************************
 //Purpose	: To list devices in file
-//Inputs	: File name with device details
+//Inputs	: const uint8 *pucFileName, name of the file name which contains the
+//				device details
 //Outputs	: None
-//Return	: True, at time of successfull execution
+//Return	: True, at time of successful execution
 //Return	: False, in case of an error
 //Notes		: File opened in read mode
 //******************************************************************************
@@ -121,11 +598,6 @@ bool deviceList(const uint8 *pucFileName)
 	bool blReturn = false;
 	DEVICE_DETAILS DeviceData = {0};
 	FILE *pstFile = NULL;
-	// char *name = NULL;
-	// char *type = NULL;
-	// size_t len = 0;
-	DeviceData.pucDevName = NULL;
-	DeviceData.pucDevType = NULL;
 	uint32 ulLen = 0;
 	uint8 ucNameLen = 0;
 	uint8 ucTypeLen = 0;
@@ -137,89 +609,112 @@ bool deviceList(const uint8 *pucFileName)
 		{
 			printf("\nList device\n");
 			printf("-----------------------------\n");
-			printf("Name\tType\tId\tVendor\tSerial\n");
-			while (1) 
+			printf("Name\t\tType\t\tId\t\tVendor\t\tSerial\n");
+			while(fileRead(&DeviceData, sizeof(DeviceData),
+				  READ_COUNT, pstFile) == SUCCESS)
 			{
-				if (fread(&DeviceData.ulDevId, sizeof(DeviceData.ulDevId), READ_COUNT,
-					pstFile) != SUCCESS)
-				{
-					break;
-					printf("\nE1");
-				}
-				if (fread(&DeviceData.ulDevVendor, sizeof(DeviceData.ulDevVendor),
-					READ_COUNT, pstFile) != SUCCESS)
-				{
-					printf("\nE2");
-					break;
-				}
-				if (fread(&DeviceData.ulDevSerial, sizeof(DeviceData.ulDevSerial),
-					READ_COUNT, pstFile) != SUCCESS)
-				{
-					printf("\nE3");
-					break;
-				}
-				if (fread(&ucNameLen, sizeof(ucNameLen), READ_COUNT,
-					pstFile) != SUCCESS)
-				{
-					printf("\nE4");
-					break;
-				}
-				DeviceData.pucDevName = malloc(ucNameLen + 1);
-				fread(DeviceData.pucDevName, CHAR_SIZE, ucNameLen, pstFile);
-				DeviceData.pucDevName[ucNameLen] = '\0';
-				if (fread(&ucTypeLen, sizeof(ucTypeLen), READ_COUNT,
-					pstFile) != SUCCESS)
-				{
-					printf("\nE5");
-					break;
-				}
-				DeviceData.pucDevType = malloc(ucTypeLen + 1);
-				fread(DeviceData.pucDevType, CHAR_SIZE, ucTypeLen, pstFile);
-				DeviceData.pucDevType[ucTypeLen] = '\0';
-				printf("%hhn\t%hhn\t%u\t%d\t%ld\n",
-						DeviceData.pucDevName, DeviceData.pucDevType,
-						DeviceData.ulDevId, DeviceData.ulDevVendor,
-						DeviceData.ulDevSerial);
+				blReturn = devicePrintData(&DeviceData);
 			}
-			fclose(pstFile);
 		}
 		else
 		{
-			printf("\nUnable to list device : Failed to open the file");
+			printf("\nUnable to list devices : Failed to open the file");
 		}
 	}
 	else
 	{
-		printf("\nUnable to list device : Missing file name");
+		printf("\nUnable to list the devices : Missing file name");
 	}
-	return true;
+
+	return blReturn;
 }
 
 //******************************.FUNCTION_HEADER.*******************************
 //Purpose	: To search an item in device list
-//Inputs	: The file with device details and device Id to be searched
-//Outputs	: 
-//Return	: True, at time of successfull execution
+//Inputs	: const uint8 *pucFileName, name of the file name which contains the
+//				device details
+//Inputs	: uint32 ucChoice, the choice selected by user as search criteria
+//Outputs	: None
+//Return	: True, at time of successful execution
 //Return	: False, in case of an error
-//Notes		: 
+//Notes		: None
 //******************************************************************************
-bool deviceSearch(const uint8 *pucFileName, uint8 ucId)
+bool deviceSearch(const uint8 *pucFileName, uint32 ucChoice)
 {
 	bool bReturn = false;
+	FILE *pstFile = NULL;
+
+	if(pucFileName != NULL && 
+		(ucChoice >= 0 && ucChoice <= SEARCH_CRITERIA_MAXIMUM_OPTIONS))
+	{
+		if(ucChoice != BACK_TO_MAIN_MENU)
+		{
+			pstFile = fileOpen(pucFileName, FILE_READ_MODE);
+			
+			if (pstFile != NULL)
+			{
+				
+				deviceSearchByCriteria(pstFile, ucChoice);
+				fileClose(pstFile);
+				bReturn = true;
+			}
+			else
+			{
+				printf("\nUnable to search devices : Failed to open the file");
+			}
+			
+		}
+	}
+	else
+	{
+		printf("\nUnable to search : Invalid search parameters");
+	}
+
 	return bReturn;
 }
 
 //******************************.FUNCTION_HEADER.*******************************
 //Purpose	: To remove an item from the device list
-//Inputs	: The file with device details and device Id to be removed
-//Outputs	: 
+//Inputs	: const uint8 *pucFileName, name of the file name which contains the
+//				device details
+//Inputs	: uint32 ucChoice, the choice selected by user as remove criteria
+//Outputs	: None
 //Return	: True, at time of successfull execution
 //Return	: False, in case of an error
-//Notes		: 
+//Notes		: None
 //******************************************************************************
-bool deviceRemove(const uint8 *pucFileName, uint8 ucId)
+bool deviceRemove(const uint8 *pucFileName, uint32 ucChoice)
 {
 	bool bReturn = false;
+	FILE *pstFile = NULL;
+
+	if(pucFileName != NULL && 
+	   (ucChoice >= 0 && ucChoice <= REMOVE_CRITERIA_MAXIMUM_OPTIONS))
+	{
+		if(ucChoice != BACK_TO_MAIN_MENU)
+		{
+			pstFile = fileOpen(pucFileName, FILE_READ_MODE);
+			
+			if (pstFile != NULL)
+			{
+				
+				deviceRemoveByCriteria(pstFile, ucChoice);
+				fileClose(pstFile);
+				bReturn = true;
+			}
+			else
+			{
+				printf("\nUnable to search devices : Failed to open the file");
+			}		
+			
+		}
+		
+	}
+	else
+	{
+		printf("\nUnable to search : Invalid search parameters");
+	}
+
 	return bReturn;
 }
 // EOF

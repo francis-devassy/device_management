@@ -15,27 +15,29 @@
 //******************************* Include Files ********************************
 #include <stdbool.h>
 #include "customTypes.h"
+#include "constants.h"
 
 //******************************* Global Types *********************************
 typedef struct _DEVICE_DETAILS_
 {
-	uint8 *pucDevName;
-	uint8 *pucDevType;
-	uint8 ulDevId;
-	uint8 ulDevVendor;
-	uint32 ulDevSerial;
+	uint8 pucDeviceName[STR_MAX_SIZE];
+	uint8 pucDeviceType[STR_MAX_SIZE];
+	uint32 ulDeviceId;
+	uint32 ulDeviceVendor;
+	uint32 ulDeviceSerial;
 } DEVICE_DETAILS;
 
 //***************************** Global Constants *******************************
+#define FILE_NAME		("devices.dat")
+#define SUCCESS			(1)
 
 //***************************** Global Variables *******************************
-#define FILE_NAME ("devices.txt")
 
 //**************************** Forward Declarations ****************************
 bool deviceAdd(const uint8 *pucFileName);
 bool deviceList(const uint8 *pucFileName);
-bool deviceSearch(const uint8 *pucFileName, uint8 ucId);
-bool deviceRemove(const uint8 *pucFileName, uint8 ucId);
+bool deviceSearch(const uint8 *pucFileName, uint32 ucChoice);
+bool deviceRemove(const uint8 *pucFileName, uint32 ucId);
 
 #endif // DEVICE_H
 // EOF

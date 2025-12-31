@@ -3,33 +3,24 @@
 //  All Rights Reserved
 //******************************************************************************
 //
-// Summary	: Handle options related to file handling
-// Note		: Feature to open, close and write to file
+// Summary	: Defines the common constants used in the code
+// Note		: Constants shared among multiples files to be placed here
 //
 //******************************************************************************
 
-#ifndef _FILE_H_
-#define _FILE_H_
+#ifndef _CONSTANTS_H_
+#define _CONSTANTS_H_
 
 //******************************* Include Files ********************************
-#include <stdio.h>
-#include <stdbool.h>
-#include "customTypes.h"
+
 //******************************* Global Types *********************************
 
 //***************************** Global Constants *******************************
-#define FILE_READ_MODE "rb"
-#define FILE_APPEND_MODE "ab"
-#define FILE_WRITE_MODE "wb"
+#define STR_MAX_SIZE	(32)
+
 //***************************** Global Variables *******************************
 
 //**************************** Forward Declarations ****************************
-FILE* fileOpen(const uint8 *pucFileName, const uint8 *pucMode);
-bool fileClose(FILE *pstFile);
-bool fileWrite(const void *pData, uint32 ulDataSize, uint32 ulDataCount,
-				FILE *pstFile);
-bool fileRead(void *pData, uint32 ulDataSize, uint32 ulDataCount,
-				FILE *pstFile);
 
-#endif // _FILE_H_
+#endif // _CONSTANTS_H_
 // EOF
