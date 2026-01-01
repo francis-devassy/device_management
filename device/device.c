@@ -154,7 +154,7 @@ static bool deviceReadValue(const uint8 *pucStringInformation,
 			menuFlushInput();
 		}
 
-		if(blReturn != SUCCESS)
+		if(blReturn == 0)
 		{
 			printf("\n Unable to read the value : Invalid input");
 		}
@@ -256,11 +256,15 @@ static bool deviceReadData(DEVICE_DETAILS *pstDeviceData,
 
 	if(blReturn == SUCCESS)
 	{
-		deviceReadValue("Enter the device Serial : ",
+		blReturn = deviceReadValue("Enter the device Serial : ",
 						&pstDeviceData->ulDeviceSerial, 
 						READ_NON_HEX);
-		blReturn = deviceCheckSerialAvailable(pstDeviceData->ulDeviceSerial,
+		
+		if(blReturn == SUCCESS)
+		{
+			blReturn = deviceCheckSerialAvailable(pstDeviceData->ulDeviceSerial,
 												pucFileName);
+		}
 	}
 
 	return blReturn;
@@ -728,9 +732,6 @@ static bool deviceRemoveByCriteria(FILE *pstFile,
 						blReturn = deviceDeleteOptions( ucDeletionChoice, 
 											&ucDeletionIndex, ucRepeatCount);
 					}
-
-					 
-	
 				}
 			}
 
