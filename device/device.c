@@ -723,13 +723,18 @@ static bool deviceRemoveByCriteria(FILE *pstFile,
 				{
 					ucDeletionChoice = menuDisplayDeleteOptions();
 
-					 blReturn = deviceDeleteOptions( ucDeletionChoice, 
+					if(ucDeletionChoice > 0)
+					{
+						blReturn = deviceDeleteOptions( ucDeletionChoice, 
 											&ucDeletionIndex, ucRepeatCount);
+					}
+
+					 
 	
 				}
 			}
 
-			if(blReturn == SUCCESS)
+			if(blReturn == SUCCESS && ucDeletionChoice > 0)
 			{
 				deviceUpdateDataFileOnRemoval(MatchedDeviceData, ucDeletionChoice,
 											ucDeletionIndex, ucRepeatCount,
