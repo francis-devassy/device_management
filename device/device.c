@@ -41,6 +41,7 @@
 #define TEMPORARY_FILE_NAME	("temporary.dat")
 #define ARRAY_SIZE			(100)
 #define INCREMENT_BY_ONE	(1)
+#define DECREMENT_BY_ONE	(1)
 
 //***************************** Local Variables ********************************
 
@@ -91,7 +92,7 @@ static bool deviceCheckSerialAvailable(uint32 pulSerial,
 //Outputs	: None
 //Return	: True, at time of successful execution
 //Return	: False, in case of an error
-//Notes		: 
+//Notes		: None
 //******************************************************************************
 static bool devicePrintData(DEVICE_DETAILS *pDeviceData)
 {
@@ -366,7 +367,6 @@ static bool deviceSearchByCriteria(FILE *pstFile,
 	DEVICE_DETAILS DeviceData = {0};
 	uint8 ucStringToSearch[STR_MAX_SIZE] = "";
 	uint32 ulValueToSearch = 0;
-	
 
 	if(pstFile != NULL && 
 		(ucChoice >= 0 && ucChoice <= SEARCH_CRITERIA_MAXIMUM_OPTIONS))
@@ -446,7 +446,6 @@ static uint8 deviceItemRepeatCount(uint8 ucChoice,
 	uint8 ucDeletionChoice = 0;
 	DEVICE_DETAILS DeviceData = {0};
 	FILE *pstFile = NULL;
-	//DEVICE_DETAILS MatchedDeviceData [ARRAY_SIZE] = {0};
 
 	fileOpen(&pstFile, FILE_NAME, FILE_READ_MODE);
 
@@ -469,10 +468,7 @@ static uint8 deviceItemRepeatCount(uint8 ucChoice,
 				((ucChoice == REMOVE_BY_SERIAL) &&
 				(DeviceData.ulDeviceSerial == ulValueToCount)))
 			{
-				//MatchedDeviceData[ucRepeatCount++] = DeviceData;
 				ucRepeatCount = ucRepeatCount + INCREMENT_BY_ONE;
-				//error
-				//pMatchedDeviceData->pucDeviceName = DeviceData.pucDeviceName;
 				strcpy(pMatchedDeviceData->pucDeviceName, 
 						DeviceData.pucDeviceName);
 				strcpy(pMatchedDeviceData->pucDeviceType, 
@@ -500,6 +496,156 @@ static uint8 deviceItemRepeatCount(uint8 ucChoice,
 	return ucRepeatCount;
 }
 
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To remove device data from the file
+//Inputs	: DEVICE_DETAILS *pMatchedDeviceData,
+//				pointer to the file which contains the device data
+//Inputs	: uint8 ucDeletionChoice,
+//				the choice selected by user as delete criteria
+//Inputs	: uint8 ucDeletionIndex, the index selected by user for deletion
+//Inputs	: uint8 ucRepeatCount, the count of the item in device data
+//Inputs	: FILE *pstFile, pointer to the file which contains device data
+//Outputs	: None
+//Return	: True, at the time of successful execution
+//Return	: False, in case of an error
+//Notes		: None
+//******************************************************************************
+static bool deviceUpdateDataFileOnRemoval(DEVICE_DETAILS *pMatchedDeviceData,
+											uint8 ucDeletionChoice,
+											uint8 ucDeletionIndex,
+											uint8 ucRepeatCount, FILE *pstFile)
+{
+	bool blReturn = false;
+	FILE *pstTemporaryFile = NULL;
+	DEVICE_DETAILS DeviceData = {0};
+	uint8 ucIteration = 0;
+	uint8 ucRemoveData = 0;
+
+	if(pMatchedDeviceData != NULL && ucRepeatCount != 0 && pstFile != NULL)
+	{
+		blReturn = fileOpen(&pstTemporaryFile, TEMPORARY_FILE_NAME,
+				FILE_WRITE_MODE);
+
+		if(blReturn == SUCCESS)
+		{
+
+			while(fileRead(&DeviceData, sizeof(DeviceData),
+			READ_COUNT, pstFile) == SUCCESS)
+			{
+				ucRemoveData = 0;
+
+				for(ucIteration = 0; ucIteration < ucRepeatCount;
+					ucIteration++)
+				{
+					if(memcmp(&DeviceData, 
+						pMatchedDeviceData + ucIteration,
+						sizeof(DeviceData)) == 0 )
+					{
+						if(ucDeletionChoice == DELETE_ALL)
+						{
+							ucRemoveData = SUCCESS;
+						}
+						else if(ucDeletionChoice == DELETE_SINGLE &&
+								ucIteration == ucDeletionIndex)
+						{
+							ucRemoveData = SUCCESS;
+						}
+						//to handle removal of non repeated item
+						else if(ucIteration == 0 &&
+								ucDeletionChoice != DELETE_SINGLE)
+						{
+							ucRemoveData = SUCCESS;
+						}
+					}
+					
+				}
+
+				if(ucRemoveData != SUCCESS)
+				{
+					fileWrite(&DeviceData, sizeof(DeviceData),WRITE_COUNT,
+								pstTemporaryFile);
+				}
+			}
+			fileClose(pstTemporaryFile);
+			remove(FILE_NAME);
+			rename(TEMPORARY_FILE_NAME,FILE_NAME);
+			printf("\n Removed the item\n");
+		}
+		else
+		{
+			printf("\nUnable to update device data file :"
+					"Failed to open tempeorary file");
+		}
+	}
+	else
+	{
+		printf("\nUnable to update device data file :"
+				"Invalid parameters");
+	}
+
+	return blReturn;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To select option for delete data when repeated data found
+//Inputs	: uint8 ucDeletionChoice, the  option selected by user for 
+//				remove device data from repeated data
+//Inputs	: uint8 *pucDeletionIndex, the index selected by user to
+//				delete device data from repeated data
+//Inputs	:  uint8 ucRepeatCount, the count of the item in device data
+//Outputs	: None
+//Return	: True, at the time of successful execution
+//Return	: False, in case of an error
+//Notes		: None
+//******************************************************************************
+static bool deviceDeleteOptions(uint8 ucDeletionChoice, uint8 *pucDeletionIndex,
+								uint8 ucRepeatCount)
+{
+	bool blReturn = false;
+
+	switch( ucDeletionChoice )
+	{
+		case DELETE_CANCEL:
+		{
+			printf("Deletion cancelled\n");
+			blReturn = true;
+		}
+		break;
+
+		case DELETE_ALL:
+		{
+			printf("Delete all\n");
+			blReturn = true;
+		}
+		break;
+
+		case DELETE_SINGLE:
+		{
+			printf("Delete single\n");
+			printf("\nEnter index (1-%hhu) to delete : ",
+					ucRepeatCount);
+			scanf("%hhu",pucDeletionIndex);
+			menuFlushInput();
+
+			if(*pucDeletionIndex > 0 && *pucDeletionIndex <= ucRepeatCount)
+			{
+				*pucDeletionIndex = 
+						*pucDeletionIndex - DECREMENT_BY_ONE;
+				blReturn = true;
+			}
+			else
+			{
+				printf("\nInvalid index");
+			}
+		}
+		break;
+
+		default:
+			printf("Invalid choice!\n");
+	}
+
+	return blReturn;
+}
 
 //******************************.FUNCTION_HEADER.*******************************
 //Purpose	: To remove device data based on criteria
@@ -514,19 +660,16 @@ static bool deviceRemoveByCriteria(FILE *pstFile,
 									uint32 ucChoice)
 {
 	bool blReturn = false;
-	DEVICE_DETAILS DeviceData = {0};
+	//DEVICE_DETAILS DeviceData = {0};
 	uint8 ucStringToRemove [STR_MAX_SIZE] = "";
 	uint32 ulValueToRemove = 0;
-	FILE *pstTemporaryFile = NULL;
-	uint8 ucRemoveData = 0;
-	uint8 ucKeepData = SUCCESS;
-	uint8 ucRepeatCount = 0;	
+	uint8 ucRepeatCount = 0;
 	uint8 ucIteration = 0;
 	uint8 ucDeletionChoice = 0;
 	uint8 ucDeletionIndex = 0;
-	DEVICE_DETAILS MatchedDeviceData [ARRAY_SIZE] = {0};	
+	DEVICE_DETAILS MatchedDeviceData [ARRAY_SIZE] = {0};
 
-	if(pstFile != NULL && 
+	if(pstFile != NULL &&
 		(ucChoice >= 0 && ucChoice <= SEARCH_CRITERIA_MAXIMUM_OPTIONS))
 	{
 		if(ucChoice == REMOVE_BY_NAME)
@@ -566,7 +709,6 @@ static bool deviceRemoveByCriteria(FILE *pstFile,
 													MatchedDeviceData);
 			if(ucRepeatCount >= SUCCESS)
 			{
-				
 				printf("\nMatched devices\n");
 				printf("-------------------------------------------\n");
 
@@ -579,103 +721,22 @@ static bool deviceRemoveByCriteria(FILE *pstFile,
 
 				if(ucRepeatCount > SUCCESS)
 				{
-					printf("\n Select option for deletion\n");
-					printf("-------------------------------------------\n");
-					printf("1. Delete all\n");
-					printf("2. Delete single\n");
-					printf("0. Cancel\n");
-					blReturn = scanf("%hhu",&ucDeletionChoice);
-					menuFlushInput();
+					ucDeletionChoice = menuDisplayDeleteOptions();
 
-					if(blReturn == SUCCESS)
-					{
-						switch( ucDeletionChoice )
-						{
-							case DELETE_CANCEL:
-							{
-								printf("Deletion cancelled\n");
-							}
-							break;
-
-							case DELETE_ALL:
-							{
-								printf("Delete all\n");
-							}
-							break;
-
-							case DELETE_SINGLE:
-							{
-								printf("Delete single\n");
-								printf("\nEnter index (1-%hhu) to delete : ",
-										ucRepeatCount);
-								scanf("%hhu",&ucDeletionIndex);
-								menuFlushInput();
-								//Decrement index by one
-								ucDeletionIndex = 
-											ucDeletionIndex - INCREMENT_BY_ONE;
-								
-							}
-							break;
-
-							default:
-								printf("Invalid choice!\n");
-						}
-			
-					}
+					 blReturn = deviceDeleteOptions( ucDeletionChoice, 
+											&ucDeletionIndex, ucRepeatCount);
+	
 				}
-
-				if(ucDeletionChoice == DELETE_ALL ||
-					ucDeletionChoice == DELETE_SINGLE || 
-					ucRepeatCount == SUCCESS)
-				{
-					fileOpen(&pstTemporaryFile, TEMPORARY_FILE_NAME,
-								FILE_WRITE_MODE);
-
-					while(fileRead(&DeviceData, sizeof(DeviceData),
-						READ_COUNT, pstFile) == SUCCESS)
-					{
-						//ucKeepData = SUCCESS;
-						ucRemoveData = 0;
-
-						for(ucIteration = 0; ucIteration < ucRepeatCount;
-							ucIteration++)
-						{
-							if(memcmp(&DeviceData, 
-								&MatchedDeviceData[ucIteration],
-								sizeof(DeviceData)) == 0 )
-							{
-								if(ucDeletionChoice == DELETE_ALL)
-								{
-									ucRemoveData = SUCCESS;
-								}
-								else if(ucDeletionChoice == DELETE_SINGLE &&
-										ucIteration == ucDeletionIndex)
-								{
-									ucRemoveData = SUCCESS;
-								}
-								else if(ucIteration == 0)//no repeat
-								{
-									ucRemoveData = SUCCESS;
-								}
-							}
-							
-						}
-
-						if(ucRemoveData != SUCCESS)
-						{
-							fileWrite(&DeviceData, sizeof(DeviceData),WRITE_COUNT,
-										pstTemporaryFile);
-						}
-					}
-					fileClose(pstTemporaryFile);
-					remove(FILE_NAME);
-					rename(TEMPORARY_FILE_NAME,FILE_NAME);
-					printf("\n Removed the item\n");
-
-				}
-
-				
 			}
+
+			if(blReturn == SUCCESS)
+			{
+				deviceUpdateDataFileOnRemoval(MatchedDeviceData, ucDeletionChoice,
+											ucDeletionIndex, ucRepeatCount,
+											pstFile);
+			}
+
+			
 		}
 	}
 	else
@@ -862,11 +923,10 @@ bool deviceRemove(const uint8 *pucFileName, uint32 ucChoice)
 			}		
 			
 		}
-		
 	}
 	else
 	{
-		printf("\nUnable to search : Invalid search parameters");
+		printf("\nUnable to remove : Invalid search parameters");
 	}
 
 	return bReturn;

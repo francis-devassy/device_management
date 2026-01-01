@@ -17,10 +17,13 @@ SRCS += menu/menu.c
 SRCS += file/file.c
 #Build target deviceManagementSystem
 main: $(SRCS)
-	$(CC) $(CFLAGS) $(SRCS) -g -o deviceManagementSystem
+	$(CC) $(CFLAGS) $(SRCS) -o deviceManagementSystem
+#Build debug target debugDeviceManagementSystem
+debug: $(SRCS)
+	$(CC) $(CFLAGS) $(SRCS) -g -o debugDeviceManagementSystem
 #Run gdb on the binary
-gdb: deviceManagementSystem
-	gdb ./deviceManagementSystem
+gdb: debugDeviceManagementSystem
+	gdb ./debugDeviceManagementSystem
 #Clean target
 clean:
 	rm -f deviceManagementSystem

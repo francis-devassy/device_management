@@ -21,7 +21,8 @@
 #define MENU_MAIN_OPTIONS_MAX			(4)
 #define MENU_SECONDARY_OPTIONS_MAX		(5)
 #define SEARCH_CRITERIA_MAXIMUM_OPTIONS	(5)
-#define REMOVE_CRITERIA_MAXIMUM_OPTIONS	(4)
+#define REMOVE_CRITERIA_MAXIMUM_OPTIONS	(5)
+#define MENU_DELETE_OPTIONS_MAX			(2)
 
 //***************************** Global Variables *******************************
 typedef enum{
@@ -59,6 +60,7 @@ typedef enum{
 //**************************** Forward Declarations ****************************
 bool menuMain(void);
 bool menuFlushInput(void);
+uint8 menuDisplayDeleteOptions(void);
 
 #endif // MENU_H
 // EOF

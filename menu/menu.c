@@ -153,6 +153,43 @@ bool menuFlushInput(void)
 }
 
 //******************************.FUNCTION_HEADER.*******************************
+//Purpose	: Display the contents in delete option menu
+//Inputs	: None
+//Outputs	: None
+//Return	: Return the option selected by the user
+//Notes		: The selected option is used to move to the next level
+//******************************************************************************
+uint8 menuDisplayDeleteOptions(void)
+{
+	uint8 ucDeletionChoice = 0;
+	bool blResult = false;
+
+	do
+	{
+		printf("\n Select option for deletion\n");
+		printf("-------------------------------------------\n");
+		printf("1. Delete all\n");
+		printf("2. Delete single\n");
+		printf("0. Cancel\n");
+		blResult = scanf("%hhu",&ucDeletionChoice);
+		menuFlushInput();
+
+		if(blResult == SUCCESS)
+		{
+			blResult = menuValidateChoice(ucDeletionChoice,
+											MENU_DELETE_OPTIONS_MAX);
+		}
+		else
+		{
+			printf("\nInavlid input: Input read failed\n");
+		}
+	}
+	while (blResult != SUCCESS);
+
+	return ucDeletionChoice;
+}
+
+//******************************.FUNCTION_HEADER.*******************************
 //Purpose	: Navigte from main menu to next levels based on the 
 //				selected options
 //Inputs	: None
