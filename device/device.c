@@ -735,7 +735,7 @@ static bool deviceRemoveByCriteria(FILE *pstFile,
 				}
 			}
 
-			if(blReturn == SUCCESS && ucDeletionChoice > 0)
+			if((blReturn == SUCCESS && ucDeletionChoice > 0) || ucRepeatCount == SUCCESS)
 			{
 				deviceUpdateDataFileOnRemoval(MatchedDeviceData, ucDeletionChoice,
 											ucDeletionIndex, ucRepeatCount,
