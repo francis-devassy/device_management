@@ -39,6 +39,8 @@
 #define PRINT_ENABLED		(1)
 #define PRINT_DISABLED		(0)
 #define TEMPORARY_FILE_NAME	("temporary.dat")
+#define ARRAY_SIZE			(100)
+#define INCREMENT_BY_ONE	(1)
 
 //***************************** Local Variables ********************************
 
@@ -51,7 +53,7 @@
 //Outputs	: None
 //Return	: True, if the Serial number has not already been used
 //Return	: False, if the Serial number has already been used
-//Notes		: 
+//Notes		: None
 //******************************************************************************
 static bool deviceCheckSerialAvailable(uint32 pulSerial,
 										const uint8 *pucFileName)
@@ -62,7 +64,7 @@ static bool deviceCheckSerialAvailable(uint32 pulSerial,
 
 	if (pucFileName != NULL)
 	{
-		pstFile = fileOpen(pucFileName, FILE_READ_MODE);
+		fileOpen(&pstFile, pucFileName, FILE_READ_MODE);
 		
 		if(pstFile != NULL)
 		{
@@ -112,7 +114,6 @@ static bool devicePrintData(DEVICE_DETAILS *pDeviceData)
 	else
 	{
 		printf("\n Unable to print device data : Invalid DeviceData pointer");
-
 	}
 
 	return blReturn;
@@ -144,12 +145,14 @@ static bool deviceReadValue(const uint8 *pucStringInformation,
 		if(blReadHex == READ_HEX)
 		{
 			blReturn = scanf("%lx",pulValue);
+			menuFlushInput();
 		}
 		else
 		{
 			blReturn = scanf("%lu",pulValue);
+			menuFlushInput();
 		}
-		
+
 		if(blReturn != SUCCESS)
 		{
 			printf("\n Unable to read the value : Invalid input");
@@ -186,24 +189,21 @@ static bool deviceReadString(const uint8 *pucStringInformation,
 
 		if(fgets((char *)pucString, ulSize, stdin) != NULL)
 		{
+			 if (strchr(pucString, '\n') == NULL)
+			 {
+				// New line missing in string, i.e user entered
+				// more than 32 characters
+				menuFlushInput();
+			 }
 			pucString[strcspn((char *)pucString, "\n")] = '\0';
-
-			int str_len = strlen((char *)pucString);
-
-			if(strlen((char *)pucString) >= STR_MAX_SIZE)
-			{
-				printf("\nUnable to read the string :\
-						String length exceeds the limit\n");
-			}
-			else
-			{
-				blReturn = true;
-			}
+			blReturn = true;
 		}
 		else
 		{
 			printf("\nUnable to read the string : Read process failed");
 		}
+		
+		
 	}
 	else
 	{
@@ -429,6 +429,79 @@ static bool deviceSearchByCriteria(FILE *pstFile,
 }
 
 //******************************.FUNCTION_HEADER.*******************************
+//Purpose	: To check how many times an item value is repeated in device data
+//Inputs	: 
+//Inputs	: 
+//Outputs	: None
+//Return	: Return the count the item repeated
+//Notes		: None
+//******************************************************************************
+static uint8 deviceItemRepeatCount(uint8 ucChoice, 
+									uint32 ulValueToCount,
+									const uint8 *pucStringToCount,
+									DEVICE_DETAILS *pMatchedDeviceData)
+{
+	uint8 ucRepeatCount = 0;
+	uint8 ucIteration = 0;
+	uint8 ucDeletionChoice = 0;
+	DEVICE_DETAILS DeviceData = {0};
+	FILE *pstFile = NULL;
+	//DEVICE_DETAILS MatchedDeviceData [ARRAY_SIZE] = {0};
+
+	fileOpen(&pstFile, FILE_NAME, FILE_READ_MODE);
+
+	if(pstFile != NULL)
+	{
+
+		while(fileRead(&DeviceData, sizeof(DeviceData),
+					READ_COUNT, pstFile) == SUCCESS)
+		{
+			if(((ucChoice == REMOVE_BY_NAME) &&
+				(strcmp((char*)DeviceData.pucDeviceName,
+				pucStringToCount) == STRINGS_EQUAL)) ||
+				((ucChoice == REMOVE_BY_TYPE) &&
+				(strcmp((char*)DeviceData.pucDeviceType,
+				pucStringToCount) == STRINGS_EQUAL)) ||
+				((ucChoice == REMOVE_BY_ID) &&
+				(DeviceData.ulDeviceId == ulValueToCount)) ||
+				((ucChoice == REMOVE_BY_VENDOR) &&
+				(DeviceData.ulDeviceVendor == ulValueToCount)) ||
+				((ucChoice == REMOVE_BY_SERIAL) &&
+				(DeviceData.ulDeviceSerial == ulValueToCount)))
+			{
+				//MatchedDeviceData[ucRepeatCount++] = DeviceData;
+				ucRepeatCount = ucRepeatCount + INCREMENT_BY_ONE;
+				//error
+				//pMatchedDeviceData->pucDeviceName = DeviceData.pucDeviceName;
+				strcpy(pMatchedDeviceData->pucDeviceName, 
+						DeviceData.pucDeviceName);
+				strcpy(pMatchedDeviceData->pucDeviceType, 
+				DeviceData.pucDeviceType);
+				pMatchedDeviceData->ulDeviceId = DeviceData.ulDeviceId;
+				pMatchedDeviceData->ulDeviceVendor = DeviceData.ulDeviceVendor;
+				pMatchedDeviceData->ulDeviceSerial = DeviceData.ulDeviceSerial;
+
+				pMatchedDeviceData++;
+			}
+		}
+		fileClose(pstFile);
+		printf("\n  %d Item found in data", ucRepeatCount);
+
+		if(ucRepeatCount == 0)
+		{
+			printf("\n No match found");
+		}		
+	}
+	else
+	{
+		printf("\n unable to open file : deviceItemRepeatCount ");
+	}
+
+	return ucRepeatCount;
+}
+
+
+//******************************.FUNCTION_HEADER.*******************************
 //Purpose	: To remove device data based on criteria
 //Inputs	: FILE *pstFile,  pointer to the file which contains the device data
 //Inputs	: uint32 ucChoice, the choice selected by user as search criteria 
@@ -438,40 +511,48 @@ static bool deviceSearchByCriteria(FILE *pstFile,
 //Notes		: None
 //******************************************************************************
 static bool deviceRemoveByCriteria(FILE *pstFile,
-								   uint32 ucChoice )
+									uint32 ucChoice)
 {
 	bool blReturn = false;
 	DEVICE_DETAILS DeviceData = {0};
-	uint8 ucStringToSearch[STR_MAX_SIZE] = "";
-	uint32 ulValueToSearch = 0;
+	uint8 ucStringToRemove [STR_MAX_SIZE] = "";
+	uint32 ulValueToRemove = 0;
 	FILE *pstTemporaryFile = NULL;
 	uint8 ucRemoveData = 0;
 	uint8 ucKeepData = SUCCESS;
-	
+	uint8 ucRepeatCount = 0;	
+	uint8 ucIteration = 0;
+	uint8 ucDeletionChoice = 0;
+	uint8 ucDeletionIndex = 0;
+	DEVICE_DETAILS MatchedDeviceData [ARRAY_SIZE] = {0};	
 
 	if(pstFile != NULL && 
 		(ucChoice >= 0 && ucChoice <= SEARCH_CRITERIA_MAXIMUM_OPTIONS))
 	{
-		if(ucChoice == SEARCH_BY_NAME)
+		if(ucChoice == REMOVE_BY_NAME)
 		{
 			blReturn = deviceReadString("Enter Name: ",
-										ucStringToSearch, STR_MAX_SIZE);
-			deviceCheckStringMatch(pstFile, ucChoice, ucStringToSearch);
+										ucStringToRemove, STR_MAX_SIZE);
 		}
-		else if(ucChoice == SEARCH_BY_TYPE)
+		else if(ucChoice == REMOVE_BY_TYPE)
 		{
 			blReturn = deviceReadString("Enter Type: ",
-										ucStringToSearch, STR_MAX_SIZE);
+										ucStringToRemove, STR_MAX_SIZE);
 		}
-		else if(ucChoice == SEARCH_BY_ID)
+		else if(ucChoice == REMOVE_BY_ID)
 		{
 			blReturn = deviceReadValue("Enter Id: ",
-										&ulValueToSearch, READ_HEX);
+										&ulValueToRemove, READ_HEX);
 		}
-		else if(ucChoice == SEARCH_BY_VENDOR)
+		else if(ucChoice == REMOVE_BY_VENDOR)
 		{
 			blReturn = deviceReadValue("Enter Vendor: ",
-										&ulValueToSearch, READ_HEX);
+										&ulValueToRemove, READ_HEX);
+		}
+		else if(ucChoice == REMOVE_BY_SERIAL)
+		{
+			blReturn = deviceReadValue("Enter Serial: ",
+										&ulValueToRemove, READ_NON_HEX);
 		}
 		else
 		{
@@ -480,47 +561,121 @@ static bool deviceRemoveByCriteria(FILE *pstFile,
 
 		if(blReturn == SUCCESS)
 		{
-			pstTemporaryFile = fileOpen(TEMPORARY_FILE_NAME, FILE_WRITE_MODE);
-
-			while(fileRead(&DeviceData, sizeof(DeviceData),
-				READ_COUNT, pstFile) == SUCCESS)
+			ucRepeatCount = deviceItemRepeatCount(ucChoice, ulValueToRemove,
+													ucStringToRemove,
+													MatchedDeviceData);
+			if(ucRepeatCount >= SUCCESS)
 			{
-				if(((ucChoice == SEARCH_BY_NAME) && 
-					(strcmp((char*)DeviceData.pucDeviceName,
-					ucStringToSearch) == STRINGS_EQUAL)) ||
-					((ucChoice == SEARCH_BY_TYPE) && 
-					(strcmp((char*)DeviceData.pucDeviceType,
-					ucStringToSearch) == STRINGS_EQUAL)) ||
-					((ucChoice == SEARCH_BY_ID) && 
-					(DeviceData.ulDeviceId == ulValueToSearch) ) ||
-					((ucChoice == SEARCH_BY_VENDOR) && 
-					(DeviceData.ulDeviceVendor == ulValueToSearch) ))
+				
+				printf("\nMatched devices\n");
+				printf("-------------------------------------------\n");
+
+				for(ucIteration = 0; ucIteration < ucRepeatCount; ucIteration++)
 				{
-					//printf("\n Match found");
-					ucKeepData = 0;
-					ucRemoveData = SUCCESS;
+					printf("%hhu :\n", ucIteration + INCREMENT_BY_ONE);
+					printf("Name\t\tType\t\tId\t\tVendor\t\tSerial\n");
+					devicePrintData(&MatchedDeviceData[ucIteration]);
 				}
 
-				if(ucKeepData == SUCCESS)
+				if(ucRepeatCount > SUCCESS)
 				{
-					fileWrite(&DeviceData, sizeof(DeviceData),WRITE_COUNT,
-								pstTemporaryFile);
-				}
-			}
-			fileClose(pstTemporaryFile);
-	
-			if(ucRemoveData == SUCCESS)
-			{
-				remove(FILE_NAME);
-				rename(TEMPORARY_FILE_NAME,FILE_NAME);
-				printf("\n Removed the item\n");
-			}
-			else
-			{
-				remove(TEMPORARY_FILE_NAME);
-				printf("No match found to remove.\n");
-			}
+					printf("\n Select option for deletion\n");
+					printf("-------------------------------------------\n");
+					printf("1. Delete all\n");
+					printf("2. Delete single\n");
+					printf("0. Cancel\n");
+					blReturn = scanf("%hhu",&ucDeletionChoice);
+					menuFlushInput();
 
+					if(blReturn == SUCCESS)
+					{
+						switch( ucDeletionChoice )
+						{
+							case DELETE_CANCEL:
+							{
+								printf("Deletion cancelled\n");
+							}
+							break;
+
+							case DELETE_ALL:
+							{
+								printf("Delete all\n");
+							}
+							break;
+
+							case DELETE_SINGLE:
+							{
+								printf("Delete single\n");
+								printf("\nEnter index (1-%hhu) to delete : ",
+										ucRepeatCount);
+								scanf("%hhu",&ucDeletionIndex);
+								menuFlushInput();
+								//Decrement index by one
+								ucDeletionIndex = 
+											ucDeletionIndex - INCREMENT_BY_ONE;
+								
+							}
+							break;
+
+							default:
+								printf("Invalid choice!\n");
+						}
+			
+					}
+				}
+
+				if(ucDeletionChoice == DELETE_ALL ||
+					ucDeletionChoice == DELETE_SINGLE || 
+					ucRepeatCount == SUCCESS)
+				{
+					fileOpen(&pstTemporaryFile, TEMPORARY_FILE_NAME,
+								FILE_WRITE_MODE);
+
+					while(fileRead(&DeviceData, sizeof(DeviceData),
+						READ_COUNT, pstFile) == SUCCESS)
+					{
+						//ucKeepData = SUCCESS;
+						ucRemoveData = 0;
+
+						for(ucIteration = 0; ucIteration < ucRepeatCount;
+							ucIteration++)
+						{
+							if(memcmp(&DeviceData, 
+								&MatchedDeviceData[ucIteration],
+								sizeof(DeviceData)) == 0 )
+							{
+								if(ucDeletionChoice == DELETE_ALL)
+								{
+									ucRemoveData = SUCCESS;
+								}
+								else if(ucDeletionChoice == DELETE_SINGLE &&
+										ucIteration == ucDeletionIndex)
+								{
+									ucRemoveData = SUCCESS;
+								}
+								else if(ucIteration == 0)//no repeat
+								{
+									ucRemoveData = SUCCESS;
+								}
+							}
+							
+						}
+
+						if(ucRemoveData != SUCCESS)
+						{
+							fileWrite(&DeviceData, sizeof(DeviceData),WRITE_COUNT,
+										pstTemporaryFile);
+						}
+					}
+					fileClose(pstTemporaryFile);
+					remove(FILE_NAME);
+					rename(TEMPORARY_FILE_NAME,FILE_NAME);
+					printf("\n Removed the item\n");
+
+				}
+
+				
+			}
 		}
 	}
 	else
@@ -551,7 +706,7 @@ bool deviceAdd(const uint8 *pucFileName)
 
 	if (pucFileName != NULL)
 	{
-		pstFile = fileOpen(pucFileName, FILE_APPEND_MODE);
+		fileOpen(&pstFile, pucFileName, FILE_APPEND_MODE);
 		
 		if(pstFile != NULL)
 		{
@@ -604,14 +759,15 @@ bool deviceList(const uint8 *pucFileName)
 	
 	if (pucFileName != NULL)
 	{
-		pstFile = fileOpen(pucFileName, FILE_READ_MODE);
+		fileOpen(&pstFile, pucFileName, FILE_READ_MODE);
+
 		if (pstFile != NULL)
 		{
 			printf("\nList device\n");
 			printf("-----------------------------\n");
 			printf("Name\t\tType\t\tId\t\tVendor\t\tSerial\n");
 			while(fileRead(&DeviceData, sizeof(DeviceData),
-				  READ_COUNT, pstFile) == SUCCESS)
+					READ_COUNT, pstFile) == SUCCESS)
 			{
 				blReturn = devicePrintData(&DeviceData);
 			}
@@ -649,11 +805,10 @@ bool deviceSearch(const uint8 *pucFileName, uint32 ucChoice)
 	{
 		if(ucChoice != BACK_TO_MAIN_MENU)
 		{
-			pstFile = fileOpen(pucFileName, FILE_READ_MODE);
+			fileOpen(&pstFile, pucFileName, FILE_READ_MODE);
 			
 			if (pstFile != NULL)
 			{
-				
 				deviceSearchByCriteria(pstFile, ucChoice);
 				fileClose(pstFile);
 				bReturn = true;
@@ -691,13 +846,12 @@ bool deviceRemove(const uint8 *pucFileName, uint32 ucChoice)
 	if(pucFileName != NULL && 
 	   (ucChoice >= 0 && ucChoice <= REMOVE_CRITERIA_MAXIMUM_OPTIONS))
 	{
-		if(ucChoice != BACK_TO_MAIN_MENU)
+		if(ucChoice != RETURN_TO_MAIN_MENU)
 		{
-			pstFile = fileOpen(pucFileName, FILE_READ_MODE);
+			fileOpen(&pstFile, pucFileName, FILE_READ_MODE);
 			
 			if (pstFile != NULL)
 			{
-				
 				deviceRemoveByCriteria(pstFile, ucChoice);
 				fileClose(pstFile);
 				bReturn = true;

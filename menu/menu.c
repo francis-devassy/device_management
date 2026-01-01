@@ -78,11 +78,11 @@ static uint8 menuDisplaySeconadryOptions(void)
 
 		if(blResult == SUCCESS)
 		{
-			blResult = menuValidateChoice(ucChoice,MENU_SECONDARY_OPTIONS_MAX);
+			blResult = menuValidateChoice(ucChoice, MENU_SECONDARY_OPTIONS_MAX);
 		}
 		else
 		{
-			printf("\nInavlid input: Input read failed");
+			printf("\nInavlid input: Input read failed\n");
 		}
 
 	}
@@ -208,7 +208,7 @@ bool menuMain(void)
 				printf("\nRemove device\n");
 				printf("-----------------------------\n");
 				printf("Select the removal criteria:\n");
-				ucSecondaryChoice = menuDisplaySeconadryOptions();				
+				ucSecondaryChoice = menuDisplaySeconadryOptions();
 				deviceRemove(FILE_NAME, ucSecondaryChoice);
 			}
 			break;
@@ -217,7 +217,7 @@ bool menuMain(void)
 				printf("Invalid choice!\n");
 		}
 	}
-	while (ucMainChoice != 0);
+	while (ucMainChoice != MENU_EXIT);
 
 	return blReturn;
 }

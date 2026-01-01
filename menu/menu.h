@@ -20,8 +20,8 @@
 //***************************** Global Constants *******************************
 #define MENU_MAIN_OPTIONS_MAX			(4)
 #define MENU_SECONDARY_OPTIONS_MAX		(5)
-#define SEARCH_CRITERIA_MAXIMUM_OPTIONS (5)
-#define REMOVE_CRITERIA_MAXIMUM_OPTIONS (4)
+#define SEARCH_CRITERIA_MAXIMUM_OPTIONS	(5)
+#define REMOVE_CRITERIA_MAXIMUM_OPTIONS	(4)
 
 //***************************** Global Variables *******************************
 typedef enum{
@@ -46,8 +46,15 @@ typedef enum{
 	REMOVE_BY_NAME,
 	REMOVE_BY_TYPE,
 	REMOVE_BY_ID,
-	REMOVE_BY_VENDOR
+	REMOVE_BY_VENDOR,
+	REMOVE_BY_SERIAL
 }REMOVE_OPTIONS;
+
+typedef enum{
+	DELETE_CANCEL,
+	DELETE_ALL,
+	DELETE_SINGLE
+}DELETE_OPTIONS;
 
 //**************************** Forward Declarations ****************************
 bool menuMain(void);

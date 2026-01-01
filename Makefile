@@ -1,4 +1,4 @@
-#Compier to use
+#Compiler to use
 CC = gcc
 #Compiler flags
 FLAGS = -Wall
@@ -17,10 +17,13 @@ SRCS += menu/menu.c
 SRCS += file/file.c
 #Build target deviceManagementSystem
 main: $(SRCS)
-	$(CC) $(CFLAGS) $(SRCS) -o deviceManagementSystem
+	$(CC) $(CFLAGS) $(SRCS) -g -o deviceManagementSystem
+#Run gdb on the binary
+gdb: deviceManagementSystem
+	gdb ./deviceManagementSystem
 #Clean target
 clean:
 	rm -f deviceManagementSystem
 #Delete the data file
-del:
+del:ls
 	rm -f devices.dat

@@ -15,16 +15,17 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "customTypes.h"
+
 //******************************* Global Types *********************************
 
 //***************************** Global Constants *******************************
-#define FILE_READ_MODE "rb"
-#define FILE_APPEND_MODE "ab"
-#define FILE_WRITE_MODE "wb"
+#define FILE_READ_MODE		"rb"
+#define FILE_APPEND_MODE	"ab"
+#define FILE_WRITE_MODE		"wb"
 //***************************** Global Variables *******************************
 
 //**************************** Forward Declarations ****************************
-FILE* fileOpen(const uint8 *pucFileName, const uint8 *pucMode);
+bool fileOpen(FILE **ppstFile, const uint8 *pucFileName, const uint8 *pucMode);
 bool fileClose(FILE *pstFile);
 bool fileWrite(const void *pData, uint32 ulDataSize, uint32 ulDataCount,
 				FILE *pstFile);

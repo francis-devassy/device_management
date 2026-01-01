@@ -26,6 +26,8 @@
 
 //******************************.FUNCTION_HEADER.*******************************
 //Purpose	: Opens the file
+//Inputs	: FILE **ppstFile, pointer to a pointer to a file which contains the
+//				device data
 //Inputs	: const uint8 *pucFileName, name of the file name which contains the
 //				device details
 //Inputs	: const uint8 *pucMode, specifies the mode in which the file 
@@ -35,18 +37,23 @@
 //Return	: False, in case of an error
 //Notes		: None
 //******************************************************************************
-FILE* fileOpen(const uint8 *pucFileName, const uint8 *pucMode)
+bool fileOpen(FILE **ppstFile, const uint8 *pucFileName, const uint8 *pucMode)
 {
-	FILE *pstFile = NULL;
+	bool blReturn = false;
 
 	if(pucFileName != NULL)
 	{
 		if(pucMode != NULL)
 		{
-			pstFile = fopen((const char *)pucFileName, (const char *)pucMode);
-			if(pstFile == NULL)
+			*ppstFile = fopen((const char *)pucFileName, (const char *)pucMode);
+
+			if(*ppstFile == NULL)
 			{
 				printf("\n Unable to open the file");
+			}
+			else
+			{
+				blReturn = true;
 			}
 		}
 		else
@@ -58,7 +65,7 @@ FILE* fileOpen(const uint8 *pucFileName, const uint8 *pucMode)
 	{
 		printf("\n File name missing, file not opened");
 	}
-	return pstFile;
+	return blReturn;
 }
 
 //******************************.FUNCTION_HEADER.*******************************
